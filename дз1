@@ -1,0 +1,105 @@
+import multiprocessing
+import time
+
+def compute_collatz_steps(number):
+    """
+    Calculate the number of steps required for a number to reach 1
+    according to the Collatz conjecture.
+    """
+    steps = 0
+    while number != 1:
+        if number % 2 == 0:
+            number //= 2
+        else:
+            number = 3 * number + 1
+        steps += 1
+    return steps
+
+def process_task(task_queue, result_queue):
+    """
+    Worker function to process numbers from the task queue and record
+    the results in the result queue.
+    """
+    cumulative_steps = 0
+    highest_steps = 0
+    number_with_highest_steps = 0
+    processed_count = 0
+
+    while True:
+        current_number = task_queue.get()
+        if current_number is None:
+            break
+
+        steps = compute_collatz_steps(current_number)
+        cumulative_steps += steps
+        processed_count += 1
+
+        if steps > highest_steps:
+            highest_steps = steps
+            number_with_highest_steps = current_number
+
+    result_queue.put((cumulative_steps, processed_count, highest_steps, number_with_highest_steps))
+
+def execute_collatz_in_parallel(total_numbers, num_workers):
+    """
+    Run the Collatz conjecture calculations in parallel using the specified
+    number of worker processes.
+    """
+    task_queue = multiprocessing.Queue()
+    result_queue = multiprocessing.Queue()
+
+    // Add numbers to the task queue
+    for i in range(1, total_numbers + 1):
+        task_queue.put(i)
+
+    // Initialize and start worker processes
+    workers = []
+    for _ in range(num_workers):
+        worker = multiprocessing.Process(target=process_task, args=(task_queue, result_queue))
+        worker.start()
+        workers.append(worker)
+
+    // Add termination signals for each worker
+    for _ in range(num_workers):
+        task_queue.put(None)
+
+    // Wait for all workers to complete
+    for worker in workers:
+        worker.join()
+
+    // Aggregate results
+    total_steps = 0
+    total_processed = 0
+    max_steps_overall = 0
+    max_number_overall = 1
+
+    while not result_queue.empty():
+        steps_sum, count, max_steps, max_number = result_queue.get()
+        total_steps += steps_sum
+        total_processed += count
+
+        if max_steps > max_steps_overall:
+            max_steps_overall = max_steps
+            max_number_overall = max_number
+
+    average_steps = total_steps / total_processed
+    return average_steps, max_steps_overall, max_number_overall
+
+def run_tests_with_various_workers(total_numbers, worker_counts):
+    """
+    Test Collatz calculations with different numbers of worker processes.
+    """
+    for num_workers in worker_counts:
+        print(f"\nExecuting with {num_workers} worker processes...")
+        start_time = time.time()
+        avg_steps, max_steps, max_number = execute_collatz_in_parallel(total_numbers, num_workers)
+        end_time = time.time()
+
+        print(f"Average steps per number: {avg_steps:.2f}")
+        print(f"Number with the most steps: {max_number} ({max_steps} steps)")
+        print(f"Execution time: {end_time - start_time:.2f} seconds")
+
+if __name__ == "__main__":
+    TOTAL_NUMBERS = 100000  // Total numbers to process
+    WORKER_COUNTS = [1, 2, 4, 8, 16]  // Different numbers of worker processes to test
+    run_tests_with_various_workers(TOTAL_NUMBERS, WORKER_COUNTS)
